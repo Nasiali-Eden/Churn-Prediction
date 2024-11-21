@@ -1,93 +1,111 @@
-# Import necessary libraries
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, roc_auc_score
+from sklearn.metrics import classification_report, accuracy_score
+from imblearn.over_sampling import SMOTE
+from sklearn.preprocessing import LabelEncoder
 
-# Step 1: Load Dataset
-# Replace 'telco_customer_churn.csv' with the path to your dataset
-df = pd.read_csv('telco_customer_churn.csv')
+# Load the data from your local file
+file_path = 'telco_customer_churn.csv'  # Update with the correct file path
+data = pd.read_csv(file_path)
 
-# Step 2: Data Preprocessing
-# Convert TotalCharges to numeric and handle missing values
-df['TotalCharges'] = pd.to_numeric(df['TotalCharges'], errors='coerce')
-df['TotalCharges'].fillna(df['TotalCharges'].mean(), inplace=True)
+# Preprocess the data (handling missing values, encoding categorical variables)
+data['TotalCharges'] = pd.to_numeric(data['TotalCharges'], errors='coerce')  # Convert to numeric, forcing errors to NaN
+data['TotalCharges'] = data['TotalCharges'].fillna(data['TotalCharges'].mean())  # Fixed inplace warning
 
-# Encode the target variable (Churn: Yes=1, No=0)
+# Encode categorical variables
 label_encoder = LabelEncoder()
-df['Churn'] = label_encoder.fit_transform(df['Churn'])
-
-# One-hot encode categorical features
-df = pd.get_dummies(df, columns=['InternetService', 'Contract', 'PaymentMethod'], drop_first=True)
-
-# Scale numerical features
-scaler = StandardScaler()
-df[['MonthlyCharges', 'TotalCharges', 'tenure']] = scaler.fit_transform(df[['MonthlyCharges', 'TotalCharges', 'tenure']])
+data['gender'] = label_encoder.fit_transform(data['gender'])
+data['SeniorCitizen'] = label_encoder.fit_transform(data['SeniorCitizen'])
+data['Partner'] = label_encoder.fit_transform(data['Partner'])
+data['Dependents'] = label_encoder.fit_transform(data['Dependents'])
+data['PhoneService'] = label_encoder.fit_transform(data['PhoneService'])
+data['MultipleLines'] = label_encoder.fit_transform(data['MultipleLines'])
+data['InternetService'] = label_encoder.fit_transform(data['InternetService'])
+data['OnlineSecurity'] = label_encoder.fit_transform(data['OnlineSecurity'])
+data['OnlineBackup'] = label_encoder.fit_transform(data['OnlineBackup'])
+data['DeviceProtection'] = label_encoder.fit_transform(data['DeviceProtection'])
+data['TechSupport'] = label_encoder.fit_transform(data['TechSupport'])
+data['StreamingTV'] = label_encoder.fit_transform(data['StreamingTV'])
+data['StreamingMovies'] = label_encoder.fit_transform(data['StreamingMovies'])
+data['Contract'] = label_encoder.fit_transform(data['Contract'])
+data['PaperlessBilling'] = label_encoder.fit_transform(data['PaperlessBilling'])
+data['PaymentMethod'] = label_encoder.fit_transform(data['PaymentMethod'])
+data['Churn'] = label_encoder.fit_transform(data['Churn'])
 
 # Define features and target
-X = df.drop(columns=['customerID', 'Churn'])  # Features
-y = df['Churn']  # Target
+X = data.drop(columns=['Churn', 'customerID'])
+y = data['Churn']
 
-# Split data into training and testing sets
+# Check the class distribution
+print("Class distribution in the dataset:")
+print(y.value_counts())
+
+# Split the data into training and testing sets (ensure class balance with stratify)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
-# Step 3: Train Random Forest Classifier
+# Handle class imbalance using SMOTE (reduce k_neighbors to 1 to avoid errors with small datasets)
+smote = SMOTE(sampling_strategy='auto', random_state=42, k_neighbors=1)
+X_train_resampled, y_train_resampled = smote.fit_resample(X_train, y_train)
+
+# Check the class distribution after SMOTE
+print("\nClass distribution after SMOTE:")
+print(pd.Series(y_train_resampled).value_counts())
+
+# Train a Random Forest Classifier
 rf_model = RandomForestClassifier(random_state=42)
-rf_model.fit(X_train, y_train)
+rf_model.fit(X_train_resampled, y_train_resampled)
 
-# Step 4: Evaluate Model
-# Predictions and evaluation
+# Make predictions on the test set
 y_pred = rf_model.predict(X_test)
-accuracy = accuracy_score(y_test, y_pred)
-roc_auc = roc_auc_score(y_test, rf_model.predict_proba(X_test)[:, 1])
 
-print(f"Accuracy: {accuracy:.2f}")
-print(f"ROC-AUC Score: {roc_auc:.2f}")
-print("\nClassification Report:\n")
+# Evaluate the model
+print("\nModel Evaluation:")
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print("\nClassification Report:")
 print(classification_report(y_test, y_pred))
 
-# Step 5: User Input for Prediction
+# Get user input for prediction
 def get_user_input():
-    print("\nEnter customer details for churn prediction:")
-    tenure = float(input("Tenure (number of months): "))
-    monthly_charges = float(input("Monthly Charges: "))
-    total_charges = float(input("Total Charges: "))
-    internet_service = input("Internet Service (options: DSL, Fiber optic, No): ")
-    contract = input("Contract Type (options: Month-to-month, One year, Two year): ")
-    payment_method = input("Payment Method (options: Electronic check, Mailed check, Bank transfer (automatic), Credit card (automatic)): ")
+    print("\nEnter the following details for prediction:")
+    gender = int(input("Gender (0 = Female, 1 = Male): "))
+    senior_citizen = int(input("SeniorCitizen (0 = No, 1 = Yes): "))
+    partner = int(input("Partner (0 = No, 1 = Yes): "))
+    dependents = int(input("Dependents (0 = No, 1 = Yes): "))
+    phone_service = int(input("PhoneService (0 = No, 1 = Yes): "))
+    multiple_lines = int(input("MultipleLines (0 = No, 1 = Yes): "))
+    internet_service = int(input("InternetService (0 = DSL, 1 = Fiber optic, 2 = No): "))
+    online_security = int(input("OnlineSecurity (0 = No, 1 = Yes): "))
+    online_backup = int(input("OnlineBackup (0 = No, 1 = Yes): "))
+    device_protection = int(input("DeviceProtection (0 = No, 1 = Yes): "))
+    tech_support = int(input("TechSupport (0 = No, 1 = Yes): "))
+    streaming_tv = int(input("StreamingTV (0 = No, 1 = Yes): "))
+    streaming_movies = int(input("StreamingMovies (0 = No, 1 = Yes): "))
+    contract = int(input("Contract (0 = Month-to-month, 1 = One year, 2 = Two year): "))
+    paperless_billing = int(input("PaperlessBilling (0 = No, 1 = Yes): "))
+    payment_method = int(input("PaymentMethod (0 = Electronic check, 1 = Mailed check, 2 = Bank transfer (automatic), 3 = Credit card (automatic)): "))
+    tenure = float(input("Tenure (months): "))
+    monthly_charges = float(input("MonthlyCharges: "))
+    total_charges = float(input("TotalCharges: "))
 
-    # Map inputs to the processed features
-    input_data = {
-        'tenure': (tenure - df['tenure'].mean()) / df['tenure'].std(),  # Scale input
-        'MonthlyCharges': (monthly_charges - df['MonthlyCharges'].mean()) / df['MonthlyCharges'].std(),  # Scale input
-        'TotalCharges': (total_charges - df['TotalCharges'].mean()) / df['TotalCharges'].std(),  # Scale input
-        'InternetService_Fiber optic': 1 if internet_service == "Fiber optic" else 0,
-        'InternetService_No': 1 if internet_service == "No" else 0,
-        'Contract_One year': 1 if contract == "One year" else 0,
-        'Contract_Two year': 1 if contract == "Two year" else 0,
-        'PaymentMethod_Credit card (automatic)': 1 if payment_method == "Credit card (automatic)" else 0,
-        'PaymentMethod_Electronic check': 1 if payment_method == "Electronic check" else 0,
-        'PaymentMethod_Mailed check': 1 if payment_method == "Mailed check" else 0
-    }
+    # Creating a user input feature vector
+    user_input = np.array([[
+        gender, senior_citizen, partner, dependents, phone_service, multiple_lines, internet_service,
+        online_security, online_backup, device_protection, tech_support, streaming_tv, streaming_movies,
+        contract, paperless_billing, payment_method, tenure, monthly_charges, total_charges
+    ]])
 
-    # Create a DataFrame with the input data
-    input_df = pd.DataFrame([input_data], columns=X.columns)
-    return input_df
+    return user_input
 
-# Get user input
+# Get user input for prediction
 user_input = get_user_input()
 
-# Predict churn for user input
-prediction = rf_model.predict(user_input)
-prediction_proba = rf_model.predict_proba(user_input)[:, 1]
+# Predict the churn value for the user input
+user_prediction = rf_model.predict(user_input)
 
-# Display prediction result
-print("\nPrediction Results:")
-if prediction[0] == 1:
-    print(f"The customer is likely to churn. (Confidence: {prediction_proba[0]*100:.2f}%)")
+# Output the result
+if user_prediction[0] == 0:
+    print("\nThe customer is predicted to not churn.")
 else:
-    print(f"The customer is not likely to churn. (Confidence: {100 - prediction_proba[0]*100:.2f}%)")
+    print("\nThe customer is predicted to churn.")
